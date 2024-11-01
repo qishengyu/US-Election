@@ -1,0 +1,263 @@
+---
+title: "qishengyu_project2"
+author: "Amber"
+date: "2024-10-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(caret)
+library(broom)
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(lubridate)
+
+# Load the data (assuming the file is in your working directory)
+polls_data <- read.csv("president_polls.csv")
+view(polls_data)
+```
+
+
+```{r}
+# Filter essential columns for analysis
+polls_data_filtered <- polls_data %>%
+  select(poll_id, pollster, start_date, end_date, sample_size, population, 
+         methodology, candidate_name, pct, party, state)
+
+# View a summary of missing values
+summary(polls_data_filtered)
+
+```
+
+```{r}
+glimpse(polls_data_filtered)
+```
+
+```{r}
+# Remove columns that are entirely NA
+polls_data_filtered <- polls_data_filtered %>%
+  select_if(~ !all(is.na(.)))
+
+# Remove rows with any remaining NA values in essential columns
+polls_data_filtered <- polls_data_filtered %>%
+  drop_na()
+
+# Check the data structure again to confirm changes
+glimpse(polls_data_filtered)
+
+```
+
+
+```{r}
+# Calculate the count of polls for each candidate in the subset
+poll_counts <- polls_data_filtered %>%
+  group_by(candidate_name) %>%
+  summarise(n = n())
+
+# Plot with boxplot and sample size labels
+for (i in seq_along(candidate_chunks)) {
+  candidate_subset <- candidate_chunks[[i]]
+  
+  # Filter data for the current subset of candidates
+  data_subset <- polls_data_filtered %>%
+    filter(candidate_name %in% candidate_subset)
+  
+  # Merge with poll_counts to get sample size labels
+  data_subset <- data_subset %>%
+    left_join(poll_counts, by = "candidate_name")
+  
+  # Create boxplot with labels for poll count
+  p <- ggplot(data_subset, aes(x = candidate_name, y = pct, fill = candidate_name)) +
+    geom_boxplot() +
+    labs(title = paste("Distribution of Poll Results for Candidates Set", i),
+         x = "Candidate",
+         y = "Percentage Support (pct)") +
+    geom_text(data = poll_counts %>% filter(candidate_name %in% candidate_subset),
+              aes(x = candidate_name, y = max(data_subset$pct) + 1, label = paste0("n=", n)),
+              hjust = -0.2, vjust = 0.5, size = 3) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # Save the plot
+  ggsave(filename = paste0("poll_results_boxplot_with_n_set_", i, ".png"), plot = p, width = 10, height = 8)
+}
+
+print("Boxplots with sample sizes saved as separate files in the working directory.")
+
+```
+
+Distribution and Variability:
+
+Some candidates show a wide range of support percentages across polls, while others have a more concentrated range.
+For example, Donald Trump and Joe Biden typically show wider interquartile ranges (IQRs) compared to others, indicating a greater variability in their polling results. This could be due to regional differences or variations in specific poll methodologies.
+In contrast, candidates like Michelle Obama or Nikki Haley have narrower boxes, suggesting more consistent levels of support across the polls included.
+Median Support Levels:
+
+The median line within each box gives an indication of the central tendency of support for each candidate. For instance, Donald Trump often has a median close to 40-45%, while Joe Biden also has a similar range, reflecting their position as leading candidates.
+Candidates with lower medians, such as Chris Christie or Mike Pence, have median support values significantly lower, indicating that they are generally less favored across the polls.
+Outliers:
+
+Some candidates exhibit outliers, which could represent unusually high or low support in certain polls. These outliers might result from specific regional polls where a candidate has localized support or from methodological differences between polls.
+Outliers are particularly noticeable for candidates like Donald Trump and Joe Biden, indicating that their support can significantly vary depending on the poll or region.
+Sample Size (n):
+
+The "n" labels beside each candidate indicate the number of polls that included that candidate. Higher values of "n" suggest that these candidates are being more widely polled, which often correlates with higher public interest or relevance.
+Candidates with low "n" values may have limited data, which could affect the reliability of their displayed support range. For instance, if a candidate is only included in a few polls, their polling box may not accurately reflect broader public sentiment.
+
+
+```{r}
+# 2. Number of Polls by Pollster
+poll_count_by_pollster <- polls_data_filtered %>%
+  group_by(pollster) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Display the top pollsters by count
+print(head(poll_count_by_pollster, 10))
+```
+
+
+
+
+```{r}
+# Set a threshold for the minimum number of polls per candidate
+threshold <- 50
+
+# Calculate the count of polls for each candidate
+poll_counts <- polls_data_filtered %>%
+  group_by(candidate_name) %>%
+  summarise(n = n())
+
+# Filter candidates that meet the threshold
+filtered_candidates <- poll_counts %>%
+  filter(n >= threshold) %>%
+  pull(candidate_name)
+
+# Filter the main dataset to include only those candidates
+filtered_data <- polls_data_filtered %>%
+  filter(candidate_name %in% filtered_candidates)
+
+# Plot using facets to create a separate panel for each candidate meeting the threshold
+p <- ggplot(filtered_data, aes(x = sample_size, y = pct)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +
+  labs(title = "Support Trend over Sample Size for Candidates Meeting the Threshold",
+       x = "Sample Size",
+       y = "Percentage Support (pct)") +
+  theme_minimal() +
+  facet_wrap(~ candidate_name, scales = "free_y", ncol = 3) +
+  theme(legend.position = "none")
+
+# Save the faceted plot
+ggsave(filename = "support_trend_sample_size_filtered.png", plot = p, width = 15, height = 12)
+
+print("Filtered support trend plot saved as 'support_trend_sample_size_filtered.png'")
+
+
+```
+
+Analysis of the Plot
+Distinct Trends for Major Candidates:
+
+Donald Trump and Joe Biden exhibit more stable trends with larger sample sizes, although both show some variations.
+Kamala Harris displays an upward trend in her early data with small sample sizes, but this trend stabilizes as the sample size increases.
+Ron DeSantis and Robert F. Kennedy show interesting trends, with DeSantis having a downward slope in support as sample size increases, while Kennedy shows a slight upward trend.
+Candidates with Low Support Across All Polls:
+
+Candidates like Chase Oliver, Cornel West, and Jill Stein consistently show very low support percentages, with their LOESS curves staying close to the bottom of the y-axis. This suggests that these candidates have minimal support regardless of poll sample size.
+Variability in Support Based on Sample Size:
+
+For some candidates, support seems sensitive to sample size changes, indicating potential variability in their appeal depending on polling conditions. Nikki Haley, for example, shows a decline in support as sample sizes grow.
+Lars Mapstead and Kamala Harris exhibit trends that fluctuate with sample size, which may reflect niche support that’s more visible in smaller or region-specific polls.
+Interpretation of LOESS Lines:
+
+The LOESS lines give us an idea of how support for each candidate behaves with increasing sample sizes. A flat or stable line indicates consistent support, while upward or downward slopes imply a relationship between sample size and the reported support level for that candidate.
+
+
+
+#model part#
+
+```{r}
+glimpse(polls_data_filtered)
+```
+
+
+```{r}
+# Check for missing values in start_date
+sum(is.na(polls_data_filtered$start_date))
+
+```
+
+```{r}
+# Calculate weekly aggregated support again after filtering missing dates
+weekly_support <- polls_data_filtered %>%
+  group_by(candidate_name, week) %>%
+  summarise(weighted_support = sum(pct * sample_size) / sum(sample_size)) %>%
+  ungroup()
+
+# Print the result to see more rows
+print(weekly_support)
+
+```
+
+```{r}
+# Fit a GLM to predict weekly aggregated support based on time (week) and candidate
+glm_model <- glm(weighted_support ~ candidate_name + week, data = weekly_support, family = gaussian())
+
+# Summary of the GLM
+summary(glm_model)
+
+```
+Interpretation of Results
+Overall Support Trends: The coefficient for week is positive, meaning there is a slight upward trend in overall support as time progresses, though this effect is minimal.
+Candidate-Specific Effects: Some candidates have a significantly lower or higher estimated support than the baseline. For example, candidates like Chase Oliver and Cornel West have large negative coefficients, indicating lower support relative to the baseline candidate.
+Forecasting: This model provides a basis for estimating each candidate’s support level over time, but we may still need to refine our model for better predictive accuracy.
+
+```{r}
+# Set a future date for prediction (e.g., election day)
+future_date <- as.Date("2024-11-05")  # Adjust as needed
+
+# Create a new data frame for prediction, keeping 'week' as a Date type
+new_data <- data.frame(candidate_name = unique(weekly_support$candidate_name),
+                       week = future_date)
+
+# Generate predictions
+predictions <- predict(glm_model, newdata = new_data, type = "response")
+predicted_support <- data.frame(candidate_name = new_data$candidate_name,
+                                predicted_support = predictions)
+
+# Print predictions for each candidate
+print(predicted_support)
+
+```
+
+```{r}
+# Sort predictions in descending order of predicted support
+sorted_predictions <- predicted_support %>%
+  arrange(desc(predicted_support))
+
+# Print the sorted predictions
+print(sorted_predictions)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

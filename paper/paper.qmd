@@ -1,0 +1,280 @@
+---
+title: "Modeling U.S. Presidential Election Outcomes Using Aggregated Poll Data"
+author: 
+  - Qisheng Yu
+thanks: "Code and data are available at: [https://github.com/RohanAlexander/starter_folder](https://github.com/RohanAlexander/starter_folder)."
+date: today
+date-format: long
+abstract: "This study leverages a poll-of-polls approach to forecast support for candidates in the 2024 U.S. Presidential Election. By aggregating multiple polls and weighting by sample size, we minimize biases inherent in individual polls and generate a more robust prediction model. Our analysis uses a generalized linear model to project each candidate's support level on election day, revealing Michelle Obama, Kamala Harris, and Bernie Sanders as the top contenders. These findings highlight the power of aggregated polling in providing a clearer picture of candidate standings, with implications for campaign strategy and public understanding of election dynamics."
+
+format: pdf
+number-sections: true
+bibliography: references.bib
+---
+
+```{r}
+#| include: false
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(palmerpenguins)
+library(dplyr)
+library(lubridate)
+library(readxl)
+```
+
+```{r}
+#| include: false
+#| warning: false
+#| message: false
+
+polls_data_filtered <- read_excel("../data/02-analysis_data/polls_data_filtered.xlsx")
+glimpse(polls_data_filtered)
+data_subset <- polls_data_filtered
+```
+
+
+
+# Introduction
+
+Introduction
+
+The 2024 U.S. presidential election has drawn significant public interest, with voters keenly following candidates’ standings across various polls. Given the influence of aggregated polling data in shaping public opinion, forecasting the election outcome has become a valuable exercise for researchers, media, and the public alike. This paper leverages a "poll-of-polls" methodology to provide a data-driven forecast of the election results, aggregating multiple polls to reduce individual poll biases and improve predictive accuracy. By analyzing this aggregated data, we aim to identify trends, provide insights into each candidate’s standing, and ultimately forecast the most likely winner.
+
+
+Our primary goal is to estimate the level of support for each presidential candidate as of election day. Using weekly aggregated polling data weighted by sample size, we build a generalized linear model (GLM) to predict candidate support on a future date. This model incorporates both the candidate and time (weekly) as predictors, providing a robust estimation of expected support levels based on trends observed over the election cycle. By focusing on the poll-of-polls approach, we seek to enhance accuracy over individual polls by averaging out sampling errors and biases.
+
+
+The analysis reveals a competitive race among several candidates, with Michelle Obama, Kamala Harris, and Bernie Sanders emerging as leading contenders based on predicted support levels. Our model suggests that Michelle Obama is likely to receive the highest support on election day, positioning her as the probable winner if these trends persist. The results highlight the importance of aggregating polling data, as individual poll variations are smoothed out, allowing for a clearer picture of each candidate’s standing in the national context.
+
+
+This forecasting model provides more than just an election prediction; it offers a method for systematically understanding polling data and its implications. In an era where polling accuracy is increasingly scrutinized, this approach adds value by minimizing biases associated with individual polls. Accurate forecasting models can inform campaign strategies, guide media narratives, and help the public interpret the shifting dynamics of candidate support. Moreover, this study underscores the potential of statistical modeling in addressing real-world questions and adds to the literature on poll aggregation and political forecasting.
+
+
+The remainder of this paper is structured as follows. Section 2 presents the data preparation steps, including cleaning and aggregation procedures. Section 3 details the modeling approach, explaining the rationale for using a generalized linear model and the interpretation of model coefficients. Section 4 discusses the results, including the forecasted support for each candidate and the projected election outcome. Section 5 offers a deep-dive analysis of one selected pollster’s methodology, examining sampling methods, response rates, and questionnaire design. Section 6 proposes an idealized survey methodology for future election forecasting, addressing sampling, recruitment, and data validation with a hypothetical $100,000 budget. Finally, Section 7 concludes with a summary of findings and recommendations for future work.
+
+
+# Data 
+
+## Overview
+
+We use the statistical programming language R [@citeR] to conduct our analysis, leveraging its robust libraries for data manipulation, visualization, and statistical modeling. Our data source is primarily polling data, capturing various metrics from multiple pollsters over time. Following @tellingstories, this data allows us to explore trends and make inferences about public support for different candidates.
+
+The dataset used in this analysis provides polling results for the 2024 US presidential election, collected from various sources and aggregated into a single dataset. Each entry in the dataset represents an individual poll, including information on sample size, candidate support percentages, pollster methodology, and other variables.
+
+## Measurement
+
+To ensure data accuracy, each polling metric (such as sample size and percentage support) was standardized across pollsters. This involved harmonizing the definitions of key variables and ensuring that all metrics were consistent. This section provides an understanding of how raw polling results translate into usable data for forecasting the election.
+
+## Outcome Variables
+
+This analysis focuses on polling data that measures support for various candidates. Each outcome variable represents the weighted support percentage for a candidate based on polls conducted at different times. Outcome variables were derived by calculating weighted averages, considering sample size as a weight.
+
+
+### Candidate Support Distributions
+
+Each set of candidates has a corresponding boxplot showing the distribution of their support percentages across polls, with the sample size for each candidate indicated by an `n` label.
+
+![Distribution of Poll Results for Candidates Set 1](../scripts/poll_results_boxplot_with_n_set_1.png)
+![Distribution of Poll Results for Candidates Set 2](../scripts/poll_results_boxplot_with_n_set_2.png)
+![Distribution of Poll Results for Candidates Set 3](../scripts/poll_results_boxplot_with_n_set_3.png)
+![Distribution of Poll Results for Candidates Set 4](../scripts/poll_results_boxplot_with_n_set_4.png)
+![Distribution of Poll Results for Candidates Set 5](../scripts/poll_results_boxplot_with_n_set_5.png)
+![Distribution of Poll Results for Candidates Set 6](../scripts/poll_results_boxplot_with_n_set_6.png)
+![Distribution of Poll Results for Candidates Set 7](../scripts/poll_results_boxplot_with_n_set_7.png)
+
+Some candidates show a wide range of support percentages across polls, while others have a more concentrated range.
+For example, Donald Trump and Joe Biden typically show wider interquartile ranges (IQRs) compared to others, indicating a greater variability in their polling results. This could be due to regional differences or variations in specific poll methodologies.
+In contrast, candidates like Michelle Obama or Nikki Haley have narrower boxes, suggesting more consistent levels of support across the polls included.
+Median Support Levels:
+
+The median line within each box gives an indication of the central tendency of support for each candidate. For instance, Donald Trump often has a median close to 40-45%, while Joe Biden also has a similar range, reflecting their position as leading candidates.
+Candidates with lower medians, such as Chris Christie or Mike Pence, have median support values significantly lower, indicating that they are generally less favored across the polls.
+Outliers:
+
+Some candidates exhibit outliers, which could represent unusually high or low support in certain polls. These outliers might result from specific regional polls where a candidate has localized support or from methodological differences between polls.
+Outliers are particularly noticeable for candidates like Donald Trump and Joe Biden, indicating that their support can significantly vary depending on the poll or region.
+Sample Size (n):
+
+The "n" labels beside each candidate indicate the number of polls that included that candidate. Higher values of "n" suggest that these candidates are being more widely polled, which often correlates with higher public interest or relevance.
+Candidates with low "n" values may have limited data, which could affect the reliability of their displayed support range. For instance, if a candidate is only included in a few polls, their polling box may not accurately reflect broader public sentiment.
+
+
+### Support Trend by Sample Size
+
+![Sample Size and Candidate Support](../scripts/support_trend_sample_size_filtered.png)
+
+This figure displays the relationship between sample size and candidate support levels across different polls.
+
+Donald Trump and Joe Biden exhibit more stable trends with larger sample sizes, although both show some variations.
+Kamala Harris displays an upward trend in her early data with small sample sizes, but this trend stabilizes as the sample size increases.
+Ron DeSantis and Robert F. Kennedy show interesting trends, with DeSantis having a downward slope in support as sample size increases, while Kennedy shows a slight upward trend.
+Candidates with Low Support Across All Polls:
+
+Candidates like Chase Oliver, Cornel West, and Jill Stein consistently show very low support percentages, with their LOESS curves staying close to the bottom of the y-axis. This suggests that these candidates have minimal support regardless of poll sample size.
+Variability in Support Based on Sample Size:
+
+For some candidates, support seems sensitive to sample size changes, indicating potential variability in their appeal depending on polling conditions. Nikki Haley, for example, shows a decline in support as sample sizes grow.
+Lars Mapstead and Kamala Harris exhibit trends that fluctuate with sample size, which may reflect niche support that’s more visible in smaller or region-specific polls.
+
+
+```{r}
+#| echo: false
+#| include: true
+#| warning: false
+#| message: true
+
+# 2. Number of Polls by Pollster
+poll_count_by_pollster <- polls_data_filtered %>%
+  group_by(pollster) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Display the top pollsters by count
+print(head(poll_count_by_pollster, 10))
+```
+
+# Model 
+
+The goal of our modeling strategy is twofold. First, to forecast support for each candidate based on polling data, adjusted for sample size and week. Second, to identify candidates who show significant changes in support over time, which could be important predictors in the context of the upcoming election.
+
+## Model Set-Up
+
+In our model, we define `weighted_support` as the aggregate weekly support for each candidate, weighted by the sample size of each poll. The support levels are then modeled as a function of `candidate_name` and `week` using a Generalized Linear Model (GLM) with a Gaussian family.
+
+The GLM formula used is:
+$weighted_support = candidate_name + week$
+This model setup allows us to observe general support trends across all candidates, as well as weekly variations in individual support levels. The model was run using the R programming language [@citeR].
+
+### Model Justification
+
+Given the historical consistency in candidate polling, we anticipate that `candidate_name` will have a significant effect on support levels, with time trends captured through the `week` variable. This approach provides a baseline for understanding candidate standings and forecasting future support, with an assumption of gradual change in support levels over time.
+
+```{r}
+#| echo: false
+#| include: true
+#| warning: false
+#| message: true
+
+library(readxl)
+weekly_support <- read_excel("../data/02-analysis_data/weekly_support.xlsx")
+
+# Fit the GLM model
+glm_model <- glm(weighted_support ~ candidate_name + week, data = weekly_support, family = gaussian())
+# Summary of the GLM
+summary(glm_model)
+```
+
+
+# Results
+Our results indicate several trends in the polling data. Below, we summarize key findings from the GLM analysis.
+
+```{r}
+#| echo: false
+#| include: true
+#| warning: false
+#| message: true
+
+# Set a future date for prediction (e.g., election day)
+future_date <- as.Date("2024-11-05")
+
+# Create a new data frame for prediction
+new_data <- data.frame(candidate_name = unique(weekly_support$candidate_name), week = future_date)
+
+# Generate predictions for each candidate
+predictions <- predict(glm_model, newdata = new_data, type = "response")
+predicted_support <- data.frame(candidate_name = new_data$candidate_name, predicted_support = predictions)
+
+# Sort predictions in descending order of support
+sorted_predictions <- predicted_support %>%
+  arrange(desc(predicted_support))
+
+# Print the sorted predictions
+print(sorted_predictions)
+
+```
+
+
+Based on the forecasted support levels from our model, Michelle Obama is projected to have the highest support on election day, with an estimated 46.46% of the vote, followed closely by Kamala Harris and Bernie Sanders, each with approximately 45.97% support. This preliminary forecast, derived from aggregated polling data and sample size weighting, offers an insight into the relative standings of the candidates.
+
+## Interpretation of Results
+Overall Support Trends: The coefficient for week in our model is positive, suggesting a slight upward trend in aggregate support over time.
+Candidate-Specific Effects: Certain candidates, such as Chase Oliver and Cornel West, show large negative coefficients, indicating significantly lower support relative to other candidates.
+Forecast Implications: Our model suggests that Michelle Obama, Kamala Harris, and Bernie Sanders are strong contenders if these trends persist through to the election. Adjustments, such as incorporating recent polling data or state-specific analysis, may refine these forecasts.
+
+# Discussion {#sec-discussion}
+
+## Key Findings
+
+In this section, we discuss the implications of our model results and provide a deeper analysis of the election forecasting results.
+
+### First Discussion Point: Insights from Candidate Support Trends {#sec-first-point}
+
+Our model shows that candidates such as Michelle Obama, Kamala Harris, and Bernie Sanders have high predicted support, with Michelle Obama leading the projections. This suggests that these candidates may have broader appeal or consistent support across polls. Analyzing these trends provides insights into voter preferences and candidate standing leading up to the election. The trend of rising support for these top candidates could indicate either a solidifying base or increased media coverage that positively impacts their polling numbers.
+
+### Second Discussion Point: The Impact of Sample Size on Prediction Accuracy
+
+The LOESS smoothed support trends show that sample size plays a significant role in the accuracy and stability of polling results. Candidates with consistent polling across larger sample sizes, such as Joe Biden and Donald Trump, display more stable support trends. In contrast, candidates with smaller or inconsistent polling samples exhibit greater variability, which may introduce noise into the forecasting model.
+
+### Third Discussion Point: Candidate-Specific Variations and Regional Differences
+
+Our model reveals that certain candidates have regionally concentrated support, which contributes to variability in their polling results. For example, some candidates have outliers in their polling data, potentially due to strong localized support in specific states. Understanding these regional effects can help refine future election models to account for geographical biases in polling data.
+
+### Weaknesses and Next Steps
+
+#### Weaknesses
+
+1. **Data Limitations**: The reliance on historical polling data introduces a potential bias, especially for candidates with limited polling information. Candidates with fewer polls may not have representative support, which could skew our predictions.
+2. **Model Assumptions**: The model assumes that support trends remain stable over time. However, election dynamics can change rapidly, influenced by unforeseen events or shifts in public opinion.
+3. **Aggregated National Data**: Our model uses aggregated polling data rather than state-specific polls, which may overlook important regional variations in support. This could lead to less accurate predictions for the Electoral College outcome.
+
+#### Next Steps
+
+1. **Incorporate State-Level Polling**: Adding state-specific polling data could improve the accuracy of the model, especially in predicting Electoral College outcomes.
+2. **Explore Nonlinear Models**: Given the dynamic nature of elections, nonlinear models or time-series models (e.g., ARIMA, Bayesian hierarchical models) could better capture sudden changes in support.
+3. **Increase Sample Size for Low-Support Candidates**: To ensure a comprehensive analysis, future studies could focus on obtaining more polling data for lesser-known candidates to improve the robustness of the model.
+
+\newpage
+
+# Appendix {-}
+
+## Additional Data Details
+
+Here we provide additional context on the dataset used in this analysis, including information about the variables and data processing steps.
+
+### Data Processing
+
+The data processing steps involved cleaning the dataset by removing columns with excessive missing values, filtering out polls with non-representative sample sizes, and aggregating the data to a weekly level.
+
+```{r}
+#| echo: false
+#| include: true
+#| warning: false
+#| message: true
+
+
+# Display the structure of the cleaned dataset
+glimpse(polls_data_filtered)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

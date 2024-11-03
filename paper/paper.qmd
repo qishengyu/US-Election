@@ -1,8 +1,8 @@
 ---
 title: "Modeling U.S. Presidential Election Outcomes Using Aggregated Poll Data"
 author: 
-  - Qisheng Yu
-thanks: "Code and data are available at: [https://github.com/RohanAlexander/starter_folder](https://github.com/RohanAlexander/starter_folder)."
+  - Qisheng Yu, Ricky Yuan
+thanks: "Code and data are available at: [https://github.com/qishengyu/US-Election](https://github.com/qishengyu/US-Election)."
 date: today
 date-format: long
 abstract: "This study leverages a poll-of-polls approach to forecast support for candidates in the 2024 U.S. Presidential Election. By aggregating multiple polls and weighting by sample size, we minimize biases inherent in individual polls and generate a more robust prediction model. Our analysis uses a generalized linear model to project each candidate's support level on election day, revealing Michelle Obama, Kamala Harris, and Bernie Sanders as the top contenders. These findings highlight the power of aggregated polling in providing a clearer picture of candidate standings, with implications for campaign strategy and public understanding of election dynamics."
@@ -37,8 +37,6 @@ data_subset <- polls_data_filtered
 
 
 # Introduction
-
-Introduction
 
 The 2024 U.S. presidential election has drawn significant public interest, with voters keenly following candidates’ standings across various polls. Given the influence of aggregated polling data in shaping public opinion, forecasting the election outcome has become a valuable exercise for researchers, media, and the public alike. This paper leverages a "poll-of-polls" methodology to provide a data-driven forecast of the election results, aggregating multiple polls to reduce individual poll biases and improve predictive accuracy. By analyzing this aggregated data, we aim to identify trends, provide insights into each candidate’s standing, and ultimately forecast the most likely winner.
 
@@ -79,10 +77,7 @@ Each set of candidates has a corresponding boxplot showing the distribution of t
 ![Distribution of Poll Results for Candidates Set 1](../scripts/poll_results_boxplot_with_n_set_1.png)
 ![Distribution of Poll Results for Candidates Set 2](../scripts/poll_results_boxplot_with_n_set_2.png)
 ![Distribution of Poll Results for Candidates Set 3](../scripts/poll_results_boxplot_with_n_set_3.png)
-![Distribution of Poll Results for Candidates Set 4](../scripts/poll_results_boxplot_with_n_set_4.png)
-![Distribution of Poll Results for Candidates Set 5](../scripts/poll_results_boxplot_with_n_set_5.png)
-![Distribution of Poll Results for Candidates Set 6](../scripts/poll_results_boxplot_with_n_set_6.png)
-![Distribution of Poll Results for Candidates Set 7](../scripts/poll_results_boxplot_with_n_set_7.png)
+
 
 Some candidates show a wide range of support percentages across polls, while others have a more concentrated range.
 For example, Donald Trump and Joe Biden typically show wider interquartile ranges (IQRs) compared to others, indicating a greater variability in their polling results. This could be due to regional differences or variations in specific poll methodologies.
@@ -125,14 +120,15 @@ Lars Mapstead and Kamala Harris exhibit trends that fluctuate with sample size, 
 #| warning: false
 #| message: true
 
-# 2. Number of Polls by Pollster
+# Calculate the number of polls by each pollster
 poll_count_by_pollster <- polls_data_filtered %>%
   group_by(pollster) %>%
   summarise(count = n()) %>%
   arrange(desc(count))
 
-# Display the top pollsters by count
-print(head(poll_count_by_pollster, 10))
+# Display the top 10 pollsters by count as a formatted table
+knitr::kable(head(poll_count_by_pollster, 10), caption = "Top 10 Pollsters by Number of Polls")
+
 ```
 
 # Model 
@@ -144,7 +140,7 @@ The goal of our modeling strategy is twofold. First, to forecast support for eac
 In our model, we define `weighted_support` as the aggregate weekly support for each candidate, weighted by the sample size of each poll. The support levels are then modeled as a function of `candidate_name` and `week` using a Generalized Linear Model (GLM) with a Gaussian family.
 
 The GLM formula used is:
-$weighted_support = candidate_name + week$
+$$weighted_support = candidate_name + 2.440e-09*week$$
 This model setup allows us to observe general support trends across all candidates, as well as weekly variations in individual support levels. The model was run using the R programming language [@citeR].
 
 ### Model Justification
@@ -158,12 +154,21 @@ Given the historical consistency in candidate polling, we anticipate that `candi
 #| message: true
 
 library(readxl)
+library(broom)
+library(knitr)
+
+# Load data
 weekly_support <- read_excel("../data/02-analysis_data/weekly_support.xlsx")
 
 # Fit the GLM model
 glm_model <- glm(weighted_support ~ candidate_name + week, data = weekly_support, family = gaussian())
-# Summary of the GLM
-summary(glm_model)
+
+# Tidy up the model summary using broom
+glm_summary <- tidy(glm_model)
+
+# Print the summary as a neat table
+kable(glm_summary, caption = "Summary of GLM for Candidate Support")
+
 ```
 
 
@@ -187,11 +192,11 @@ predictions <- predict(glm_model, newdata = new_data, type = "response")
 predicted_support <- data.frame(candidate_name = new_data$candidate_name, predicted_support = predictions)
 
 # Sort predictions in descending order of support
-sorted_predictions <- predicted_support %>%
+sorted_predictions <- predicted_support %>% 
   arrange(desc(predicted_support))
 
-# Print the sorted predictions
-print(sorted_predictions)
+# Print the sorted predictions as a table
+knitr::kable(sorted_predictions, caption = "Predicted Support for Each Candidate on Election Day")
 
 ```
 
